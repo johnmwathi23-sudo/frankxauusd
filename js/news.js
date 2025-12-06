@@ -1,6 +1,6 @@
 // ============================================
-// XAUUSD Trading Analyzer - News Feed
-// Fetches and displays gold market news
+// Multi-Asset Trading Analyzer - News Feed
+// Fetches and displays market news for selected asset
 // ============================================
 
 // News configuration
@@ -14,16 +14,19 @@ const NEWS_CONFIG = {
 let newsCache = [];
 
 /**
- * Fetch gold and XAUUSD news from News API
+ * Fetch asset-specific news from News API
+ * @param {String} asset - Asset symbol
  * @returns {Promise<Array>} Array of news items
  */
-async function fetchGoldNews() {
+async function fetchAssetNews(asset = 'XAUUSD') {
     if (NEWS_CONFIG.isDemoMode || !NEWS_CONFIG.apiKey) {
-        return generateDemoNews();
+        return generateDemoNews(asset);
     }
 
     try {
-        const query = 'gold OR XAUUSD OR "gold prices" OR "precious metals"';
+        const assetConfig = getAssetConfig(asset);
+        const keywords = assetConfig.newsKeywords.join(' OR ');
+        const query = `${keywords} OR "${assetConfig.displayName}"`;
         const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&apiKey=${NEWS_CONFIG.apiKey}`;
 
         const response = await fetch(url);
@@ -34,12 +37,17 @@ async function fetchGoldNews() {
         } else {
             console.warn('News API error, using demo news');
             NEWS_CONFIG.isDemoMode = true;
-            return generateDemoNews();
+            return generateDemoNews(asset);
         }
     } catch (error) {
         console.error('Error fetching news:', error);
-        return generateDemoNews();
+        return generateDemoNews(asset);
     }
+}
+
+// Keep old function name for backward compatibility
+async function fetchGoldNews() {
+    return fetchAssetNews('XAUUSD');
 }
 
 /**
@@ -76,67 +84,109 @@ function detectHighImpact(text) {
 
 /**
  * Generate demo news items for demonstration
+ * @param {String} asset - Asset symbol
  * @returns {Array} Array of demo news items
  */
-function generateDemoNews() {
-    const demoArticles = [
+function generateDemoNews(asset = 'XAUUSD') {
+    const assetConfig = getAssetConfig(asset);
+    const assetName = assetConfig.name;
+    const displayName = assetConfig.displayName;
+
+    // Generate asset-specific demo news
+    const demoArticles = [];
+
+    // Asset-specific news templates
+    if (assetConfig.category === 'Crypto') {
+        demoArticles.push(
+            {
+                title: `${assetName} Sees Strong Momentum Amid Market Rally`,
+                summary: `${displayName} continues its upward trajectory as cryptocurrency markets show renewed strength. Institutional interest remains high.`,
+                source: 'Crypto News Daily',
+                timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
+                impact: true
+            },
+            {
+                title: `Technical Analysis: ${displayName} Key Levels to Watch`,
+                summary: `Chart patterns suggest potential breakout for ${assetName}. Traders monitor critical support and resistance zones.`,
+                source: 'Trading Insights',
+                timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
+                impact: false
+            },
+            {
+                title: `Blockchain Activity Surges for ${assetName}`,
+                summary: `On-chain metrics show increased activity and transaction volume for ${displayName}, signaling growing adoption.`,
+                source: 'Blockchain Analytics',
+                timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000),
+                impact: true
+            }
+        );
+    } else if (assetConfig.category === 'Forex') {
+        demoArticles.push(
+            {
+                title: `${displayName} Holds Steady Amid Central Bank Policy Expectations`,
+                summary: `${assetName} remains stable as traders await key economic data releases and central bank decisions.`,
+                source: 'Financial News Network',
+                timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
+                impact: true
+            },
+            {
+                title: `${displayName} Technical Outlook: Support Levels Hold`,
+                summary: `Technical analysts identify critical support levels for ${displayName} as the pair consolidates recent movements.`,
+                source: 'FX Analysis',
+                timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
+                impact: false
+            },
+            {
+                title: `Economic Data Impacts ${displayName} Trading`,
+                summary: `Latest economic indicators influence ${displayName} direction as market participants adjust positions.`,
+                source: 'Reuters Markets',
+                timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000),
+                impact: true
+            }
+        );
+    } else if (assetConfig.category === 'Volatility') {
+        demoArticles.push(
+            {
+                title: `${displayName} Shows Increased Activity`,
+                summary: `${assetName} experiences heightened volatility as market conditions create trading opportunities.`,
+                source: 'Volatility Trading',
+                timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
+                impact: true
+            },
+            {
+                title: `Technical Patterns Emerge on ${displayName}`,
+                summary: `Traders identify key technical setups on ${displayName} as the index continues its characteristic movement.`,
+                source: 'Synthetic Indices Analysis',
+                timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
+                impact: false
+            },
+            {
+                title: `${displayName} Trading Volume Surges`,
+                summary: `Increased trading activity on ${displayName} reflects growing interest in volatility index trading.`,
+                source: 'Market Watch',
+                timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000),
+                impact: false
+            }
+        );
+    }
+
+    // Add general market news
+    demoArticles.push(
         {
-            title: 'Gold Prices Hold Steady Amid Fed Rate Decision Expectations',
-            summary: 'Gold prices remained stable as investors await the Federal Reserve\'s upcoming interest rate decision. Market participants are closely monitoring economic indicators for signs of policy shifts.',
-            source: 'Financial News Network',
-            timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-            impact: true
-        },
-        {
-            title: 'XAUUSD Technical Analysis: Key Support Levels to Watch',
-            summary: 'Technical analysts identify critical support levels for gold as the precious metal consolidates recent gains. Chart patterns suggest potential for further upside movement.',
-            source: 'Trading Insights',
-            timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
-            impact: false
-        },
-        {
-            title: 'Central Banks Increase Gold Reserves in Q4 2025',
-            summary: 'Global central banks continued their gold purchasing trend, adding significant amounts to their reserves. This sustained demand provides fundamental support for gold prices.',
-            source: 'Bloomberg Markets',
-            timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000),
-            impact: true
-        },
-        {
-            title: 'Dollar Weakness Boosts Gold Appeal for International Buyers',
-            summary: 'A softer U.S. dollar is making gold more attractive for buyers holding other currencies. Foreign demand has picked up in Asian and European markets.',
-            source: 'Reuters Commodities',
+            title: 'Market Volatility Creates Trading Opportunities',
+            summary: 'Increased market volatility across asset classes presents opportunities for active traders using technical analysis strategies.',
+            source: 'Trading Weekly',
             timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000),
             impact: false
         },
         {
-            title: 'Geopolitical Tensions Drive Safe-Haven Demand for Gold',
-            summary: 'Rising geopolitical uncertainties have increased investor interest in safe-haven assets. Gold has benefited from this flight to quality.',
-            source: 'Market Watch',
+            title: 'Global Economic Outlook Influences Asset Prices',
+            summary: 'Macroeconomic factors continue to drive price action across multiple markets as investors assess risk.',
+            source: 'Economic Times',
             timestamp: new Date(Date.now() - 10 * 60 * 60 * 1000),
             impact: true
-        },
-        {
-            title: 'Gold Mining Stocks Rally on Higher Metal Prices',
-            summary: 'Major gold mining companies saw share price increases as the underlying commodity strengthens. Analysts upgrade ratings on select mining stocks.',
-            source: 'Mining Weekly',
-            timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000),
-            impact: false
-        },
-        {
-            title: 'Inflation Data Supports Precious Metals Investment Case',
-            summary: 'Latest inflation figures reinforce gold\'s role as an inflation hedge. Institutional investors are increasing allocations to precious metals.',
-            source: 'Investment Daily',
-            timestamp: new Date(Date.now() - 14 * 60 * 60 * 1000),
-            impact: true
-        },
-        {
-            title: 'Technical Breakout Signals Potential Bull Run for Gold',
-            summary: 'Gold breaks through key resistance level, triggering buy signals on multiple technical indicators. Momentum traders enter long positions.',
-            source: 'Trading View Analysis',
-            timestamp: new Date(Date.now() - 16 * 60 * 60 * 1000),
-            impact: false
         }
-    ];
+    );
 
     return demoArticles;
 }
@@ -184,11 +234,14 @@ function formatTimeAgo(timestamp) {
 }
 
 /**
- * Update news feed
+ * Update news feed for current asset
+ * @param {String} asset - Asset symbol (optional, uses current asset if not provided)
  */
-async function updateNews() {
+async function updateNews(asset) {
     try {
-        const newsItems = await fetchGoldNews();
+        // If no asset provided, try to get from AppState (if available)
+        const targetAsset = asset || (typeof AppState !== 'undefined' ? AppState.currentAsset : 'XAUUSD');
+        const newsItems = await fetchAssetNews(targetAsset);
         newsCache = newsItems;
         displayNews(newsItems);
     } catch (error) {

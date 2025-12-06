@@ -1,5 +1,5 @@
 // ============================================
-// XAUUSD Trading Analyzer - API & Data Management
+// Multi-Asset Trading Analyzer - API & Data Management
 // Handles real-time data fetching and demo mode
 // ============================================
 
@@ -21,24 +21,107 @@ let marketData = {
 };
 
 /**
- * Fetch current XAUUSD price from API or generate demo data
+ * Fetch current asset price from API or generate demo data
+ * @param {String} asset - Asset symbol (e.g., 'XAUUSD', 'BTCUSD')
  * @returns {Promise<Object>} Price data {price, change, changePercent}
  */
-async function fetchXAUUSDPrice() {
+async function fetchAssetPrice(asset = 'XAUUSD') {
+    const assetConfig = getAssetConfig(asset);
+
     if (API_CONFIG.isDemoMode || !API_CONFIG.alphaVantageKey) {
-        return generateDemoPrice();
+        return generateDemoPrice(asset);
     }
 
     try {
-        // Alpha Vantage API endpoint for gold (XAUUSD)
-        const url = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=XAU&to_currency=USD&apikey=${API_CONFIG.alphaVantageKey}`;
+        // Handle different asset types
+        if (assetConfig.category === 'Crypto') {
+            return await fetchCryptoPrice(asset);
+        } else if (assetConfig.category === 'Forex') {
+            return await fetchForexPrice(asset);
+        } else if (assetConfig.category === 'Volatility') {
+            // Volatility indices are demo-only (broker-specific)
+            return generateDemoPrice(asset);
+        }
+    } catch (error) {
+        console.error('Error fetching price data:', error);
+        return generateDemoPrice(asset);
+    }
+}
 
+/**
+ * Fetch cryptocurrency price from CoinGecko API (free, no key required)
+ * @param {String} asset - Crypto asset symbol
+ * @returns {Promise<Object>} Price data
+ */
+async function fetchCryptoPrice(asset) {
+    try {
+        // Map asset symbols to CoinGecko IDs
+        const coinMap = {
+            'BTCUSD': 'bitcoin',
+            'ETHUSD': 'ethereum',
+            'XRPUSD': 'ripple',
+            'LTCUSD': 'litecoin',
+            'ADAUSD': 'cardano',
+            'SOLUSD': 'solana',
+            'DOGEUSD': 'dogecoin'
+        };
+
+        const coinId = coinMap[asset];
+        if (!coinId) return generateDemoPrice(asset);
+
+        const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd&include_24hr_change=true`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data[coinId]) {
+            const price = data[coinId].usd;
+            const changePercent = data[coinId].usd_24h_change || 0;
+            const change = (price * changePercent) / 100;
+
+            return {
+                price: price.toFixed(2),
+                change: change.toFixed(2),
+                changePercent: changePercent.toFixed(2)
+            };
+        }
+
+        return generateDemoPrice(asset);
+    } catch (error) {
+        console.error('Error fetching crypto price:', error);
+        return generateDemoPrice(asset);
+    }
+}
+
+/**
+ * Fetch forex pair price from Alpha Vantage
+ * @param {String} asset - Forex asset symbol
+ * @returns {Promise<Object>} Price data
+ */
+async function fetchForexPrice(asset) {
+    try {
+        // Parse forex pair (e.g., EURUSD -> EUR, USD)
+        let fromCurrency, toCurrency;
+
+        if (asset === 'XAUUSD') {
+            fromCurrency = 'XAU';
+            toCurrency = 'USD';
+        } else {
+            fromCurrency = asset.substring(0, 3);
+            toCurrency = asset.substring(3, 6);
+        }
+
+        const url = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${fromCurrency}&to_currency=${toCurrency}&apikey=${API_CONFIG.alphaVantageKey}`;
         const response = await fetch(url);
         const data = await response.json();
 
         if (data['Realtime Currency Exchange Rate']) {
             const rate = data['Realtime Currency Exchange Rate'];
-            const price = parseFloat(rate['5. Exchange Rate']) * 1000; // Convert to price per ounce
+            let price = parseFloat(rate['5. Exchange Rate']);
+
+            // For gold, multiply by 1000 to get price per ounce
+            if (asset === 'XAUUSD') {
+                price *= 1000;
+            }
 
             // Calculate change (simplified - would need historical data for accurate calculation)
             const prevPrice = marketData.currentPrice || price;
@@ -53,22 +136,28 @@ async function fetchXAUUSDPrice() {
         } else {
             console.warn('Alpha Vantage API limit reached or error, switching to demo mode');
             API_CONFIG.isDemoMode = true;
-            return generateDemoPrice();
+            return generateDemoPrice(asset);
         }
     } catch (error) {
-        console.error('Error fetching price data:', error);
-        return generateDemoPrice();
+        console.error('Error fetching forex price:', error);
+        return generateDemoPrice(asset);
     }
 }
 
+// Keep old function name for backward compatibility
+async function fetchXAUUSDPrice() {
+    return fetchAssetPrice('XAUUSD');
+}
+
 /**
- * Generate realistic demo/simulated XAUUSD price data
+ * Generate realistic demo/simulated price data for any asset
+ * @param {String} asset - Asset symbol
  * @returns {Object} Simulated price data
  */
-function generateDemoPrice() {
-    // Base price around current gold prices (Dec 2025)
-    const basePrice = 2050;
-    const volatility = 20;
+function generateDemoPrice(asset = 'XAUUSD') {
+    const assetConfig = getAssetConfig(asset);
+    const basePrice = assetConfig.basePrice;
+    const volatility = assetConfig.volatility;
 
     // Use a sine wave with random noise for realistic price movement
     const time = Date.now() / 100000;
@@ -81,9 +170,11 @@ function generateDemoPrice() {
     const change = price - prevPrice;
     const changePercent = (change / prevPrice) * 100;
 
+    const decimals = assetConfig.decimals;
+
     return {
-        price: price.toFixed(2),
-        change: change.toFixed(2),
+        price: price.toFixed(decimals),
+        change: change.toFixed(decimals),
         changePercent: changePercent.toFixed(2)
     };
 }
@@ -94,9 +185,9 @@ function generateDemoPrice() {
  * @param {Number} limit - Number of candles to fetch
  * @returns {Promise<Array>} Array of OHLC candles
  */
-async function fetchHistoricalData(timeframe = 'H4', limit = 200) {
+async function fetchHistoricalData(timeframe = 'H4', limit = 200, asset = 'XAUUSD') {
     if (API_CONFIG.isDemoMode || !API_CONFIG.alphaVantageKey) {
-        return generateDemoCandles(limit);
+        return generateDemoCandles(limit, asset);
     }
 
     try {
@@ -122,7 +213,7 @@ async function fetchHistoricalData(timeframe = 'H4', limit = 200) {
 
         if (!timeSeries) {
             console.warn('No time series data, using demo candles');
-            return generateDemoCandles(limit);
+            return generateDemoCandles(limit, asset);
         }
 
         const candles = Object.entries(timeSeries).slice(0, limit).map(([time, values]) => ({
@@ -141,28 +232,31 @@ async function fetchHistoricalData(timeframe = 'H4', limit = 200) {
 }
 
 /**
- * Generate realistic demo candle data
+ * Generate realistic demo candle data for any asset
  * @param {Number} count - Number of candles to generate
+ * @param {String} asset - Asset symbol
  * @returns {Array} Array of OHLC candles
  */
-function generateDemoCandles(count = 200) {
+function generateDemoCandles(count = 200, asset = 'XAUUSD') {
+    const assetConfig = getAssetConfig(asset);
     const candles = [];
-    const basePrice = 2050;
+    const basePrice = assetConfig.basePrice;
     let currentPrice = basePrice;
     const now = Date.now();
     const interval = 4 * 60 * 60 * 1000; // 4 hours
+    const volatility = assetConfig.volatility;
 
     for (let i = count - 1; i >= 0; i--) {
         const time = now - (i * interval);
-        const volatility = 15;
 
         // Random walk with mean reversion
         const change = (Math.random() - 0.48) * volatility; // Slight upward bias
         currentPrice += change;
 
         // Mean reversion
-        if (currentPrice > basePrice + 50) currentPrice -= 5;
-        if (currentPrice < basePrice - 50) currentPrice += 5;
+        const meanReversionRange = volatility * 3;
+        if (currentPrice > basePrice + meanReversionRange) currentPrice -= volatility * 0.25;
+        if (currentPrice < basePrice - meanReversionRange) currentPrice += volatility * 0.25;
 
         const open = currentPrice;
         const high = open + Math.random() * volatility;
@@ -171,10 +265,10 @@ function generateDemoCandles(count = 200) {
 
         candles.push({
             time,
-            open: parseFloat(open.toFixed(2)),
-            high: parseFloat(high.toFixed(2)),
-            low: parseFloat(low.toFixed(2)),
-            close: parseFloat(close.toFixed(2))
+            open: parseFloat(open.toFixed(assetConfig.decimals)),
+            high: parseFloat(high.toFixed(assetConfig.decimals)),
+            low: parseFloat(low.toFixed(assetConfig.decimals)),
+            close: parseFloat(close.toFixed(assetConfig.decimals))
         });
 
         currentPrice = close;
@@ -187,20 +281,21 @@ function generateDemoCandles(count = 200) {
  * Update market data cache with latest information
  * @param {String} timeframe - Current timeframe
  */
-async function updateMarketData(timeframe = 'H4') {
+async function updateMarketData(timeframe = 'H4', asset = 'XAUUSD') {
     try {
         // Fetch current price
-        const priceData = await fetchXAUUSDPrice();
+        const priceData = await fetchAssetPrice(asset);
         marketData.currentPrice = parseFloat(priceData.price);
         marketData.priceChange = parseFloat(priceData.change);
         marketData.priceChangePercent = parseFloat(priceData.changePercent);
 
         // Fetch historical candles
-        const candles = await fetchHistoricalData(timeframe, 200);
+        const candles = await fetchHistoricalData(timeframe, 200, asset);
         marketData.candles = candles;
         marketData.lastUpdate = new Date();
 
         console.log('📈 Market data updated:', {
+            asset,
             price: marketData.currentPrice,
             change: marketData.priceChange,
             candleCount: candles.length,

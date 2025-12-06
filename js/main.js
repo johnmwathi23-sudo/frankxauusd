@@ -5,6 +5,7 @@
 
 // Application state
 const AppState = {
+    currentAsset: localStorage.getItem('currentAsset') || 'XAUUSD',
     currentTimeframe: 'H4',
     autoRefreshId: null,
     useRSIConfirmation: true,
@@ -36,6 +37,12 @@ document.addEventListener('DOMContentLoaded', function () {
  * Initialize all application components
  */
 function initializeApp() {
+    // Set initial asset in selector
+    document.getElementById('assetSelect').value = AppState.currentAsset;
+
+    // Update UI with current asset
+    updateAssetDisplay();
+
     // Initialize gauges
     initializeGauges();
 
@@ -60,7 +67,7 @@ async function updateDashboard() {
         setLoadingState(true);
 
         // 1. Fetch market data
-        const marketData = await updateMarketData(AppState.currentTimeframe);
+        const marketData = await updateMarketData(AppState.currentTimeframe, AppState.currentAsset);
 
         // 2. Update price display
         updatePriceDisplay(marketData);
@@ -175,13 +182,16 @@ function getDefaultIndicators(price) {
  */
 function updatePriceDisplay(marketData) {
     const { currentPrice, priceChange, priceChangePercent } = marketData;
+    const assetConfig = getAssetConfig(AppState.currentAsset);
 
     const priceElement = document.getElementById('currentPrice');
     const changeElement = document.getElementById('priceChange');
 
-    priceElement.textContent = `$${currentPrice.toFixed(2)}`;
+    // Format price according to asset
+    const formattedPrice = getDisplayPrice(currentPrice, AppState.currentAsset);
+    priceElement.textContent = formattedPrice;
 
-    const changeText = `${priceChange >= 0 ? '+' : ''}$${priceChange.toFixed(2)} (${priceChangePercent >= 0 ? '+' : ''}${priceChangePercent.toFixed(2)}%)`;
+    const changeText = `${priceChange >= 0 ? '+' : ''}${priceChange.toFixed(assetConfig.decimals)} (${priceChangePercent >= 0 ? '+' : ''}${priceChangePercent.toFixed(2)}%)`;
     changeElement.textContent = changeText;
     changeElement.className = `price-change ${priceChange >= 0 ? 'positive' : 'negative'}`;
 }
@@ -241,32 +251,35 @@ function updateActivityList(liquiditySweep, breakRetest) {
  * Update suggested trade levels
  */
 function updateTradeLevels(price, swingHigh, swingLow, signal) {
+    const assetConfig = getAssetConfig(AppState.currentAsset);
+    const decimals = assetConfig.decimals;
+
     let entry, stopLoss, tp1, tp2;
 
     if (signal === 'BUY') {
         entry = price;
-        stopLoss = swingLow ? swingLow - 5 : price - 15;
+        stopLoss = swingLow ? swingLow - (assetConfig.volatility * 0.25) : price - (assetConfig.volatility * 0.75);
         const risk = entry - stopLoss;
         tp1 = entry + (risk * 1.5);
         tp2 = entry + (risk * 2.5);
     } else if (signal === 'SELL') {
         entry = price;
-        stopLoss = swingHigh ? swingHigh + 5 : price + 15;
+        stopLoss = swingHigh ? swingHigh + (assetConfig.volatility * 0.25) : price + (assetConfig.volatility * 0.75);
         const risk = stopLoss - entry;
         tp1 = entry - (risk * 1.5);
         tp2 = entry - (risk * 2.5);
     } else {
         // Neutral - show both scenarios
         entry = price;
-        stopLoss = price - 10;
-        tp1 = price + 15;
-        tp2 = price + 25;
+        stopLoss = price - (assetConfig.volatility * 0.5);
+        tp1 = price + (assetConfig.volatility * 0.75);
+        tp2 = price + (assetConfig.volatility * 1.25);
     }
 
-    document.getElementById('entryPrice').textContent = `$${entry.toFixed(2)}`;
-    document.getElementById('stopLoss').textContent = `$${stopLoss.toFixed(2)}`;
-    document.getElementById('takeProfit1').textContent = `$${tp1.toFixed(2)}`;
-    document.getElementById('takeProfit2').textContent = `$${tp2.toFixed(2)}`;
+    document.getElementById('entryPrice').textContent = formatAssetPrice(entry, AppState.currentAsset);
+    document.getElementById('stopLoss').textContent = formatAssetPrice(stopLoss, AppState.currentAsset);
+    document.getElementById('takeProfit1').textContent = formatAssetPrice(tp1, AppState.currentAsset);
+    document.getElementById('takeProfit2').textContent = formatAssetPrice(tp2, AppState.currentAsset);
 }
 
 /**
@@ -301,6 +314,15 @@ function setupEventListeners() {
     // Settings button
     document.getElementById('settingsBtn').addEventListener('click', () => {
         document.getElementById('settingsModal').classList.add('active');
+    });
+
+    // Asset selector
+    document.getElementById('assetSelect').addEventListener('change', (e) => {
+        AppState.currentAsset = e.target.value;
+        localStorage.setItem('currentAsset', AppState.currentAsset);
+        updateAssetDisplay();
+        updateDashboard();
+        updateNews();
     });
 
     // Timeframe selector
@@ -363,11 +385,13 @@ function downloadAnalysisCSV() {
     const marketData = getMarketData();
     const gaugeValues = getCurrentGaugeValues();
     const alerts = getAlertHistory();
+    const assetConfig = getAssetConfig(AppState.currentAsset);
 
-    let csv = 'XAUUSD Trading Analysis Export\n\n';
+    let csv = `${assetConfig.displayName} Trading Analysis Export\n\n`;
     csv += `Timestamp,${new Date().toISOString()}\n`;
-    csv += `Current Price,$${marketData.currentPrice}\n`;
-    csv += `Price Change,$${marketData.priceChange} (${marketData.priceChangePercent}%)\n\n`;
+    csv += `Asset,${assetConfig.displayName} (${assetConfig.name})\n`;
+    csv += `Current Price,${formatAssetPrice(marketData.currentPrice, AppState.currentAsset)}\n`;
+    csv += `Price Change,${marketData.priceChange.toFixed(assetConfig.decimals)} (${marketData.priceChangePercent.toFixed(2)}%)\n\n`;
 
     csv += 'Gauge Values\n';
     csv += 'Indicator,Value\n';
@@ -389,7 +413,7 @@ function downloadAnalysisCSV() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `xauusd-analysis-${Date.now()}.csv`;
+    a.download = `${AppState.currentAsset.toLowerCase()}-analysis-${Date.now()}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -491,4 +515,19 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
-console.log('📊 XAUUSD Trading Analyzer loaded');
+/**
+ * Update asset display in UI
+ */
+function updateAssetDisplay() {
+    const assetConfig = getAssetConfig(AppState.currentAsset);
+
+    // Update asset label in header
+    document.getElementById('assetLabel').textContent = assetConfig.displayName;
+
+    // Update news title
+    document.getElementById('newsTitle').textContent = `${assetConfig.displayName} Market News`;
+
+    console.log(`📊 Asset switched to: ${assetConfig.displayName}`);
+}
+
+console.log('📊 Multi-Asset Trading Analyzer loaded');

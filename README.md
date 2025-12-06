@@ -1,10 +1,38 @@
-# XAUUSD Trading Analyzer
+# Multi-Asset Trading Analyzer
 
-A comprehensive, responsive HTML-based trading analysis tool for XAUUSD (Gold) using the **Liquidity Sweep + Break & Retest** strategy.
+A comprehensive, responsive HTML-based trading analysis tool supporting **24 trading instruments** across Forex, Cryptocurrencies, and Volatility Indices using the **Liquidity Sweep + Break & Retest** strategy.
 
 ![Trading Analyzer](https://img.shields.io/badge/Status-Ready-success) ![License](https://img.shields.io/badge/License-Educational-blue)
 
-## 🌟 Features
+## 🌟 Supported Assets
+
+### 💰 Forex Pairs (8)
+- **XAU/USD** - Gold vs US Dollar
+- **EUR/USD** - Euro vs US Dollar
+- **GBP/USD** - British Pound vs US Dollar
+- **USD/JPY** - US Dollar vs Japanese Yen
+- **AUD/USD** - Australian Dollar vs US Dollar
+- **USD/CAD** - US Dollar vs Canadian Dollar
+- **NZD/USD** - New Zealand Dollar vs US Dollar
+- **USD/CHF** - US Dollar vs Swiss Franc
+
+### ₿ Cryptocurrencies (7)
+- **BTC/USD** - Bitcoin
+- **ETH/USD** - Ethereum
+- **XRP/USD** - Ripple
+- **LTC/USD** - Litecoin
+- **ADA/USD** - Cardano
+- **SOL/USD** - Solana
+- **DOGE/USD** - Dogecoin
+
+### 📊 Volatility Indices (5)
+- **Volatility 75** - 75% volatility synthetic index
+- **Volatility 100** - 100% volatility synthetic index
+- **Volatility 50** - 50% volatility synthetic index
+- **Volatility 25** - 25% volatility synthetic index
+- **Volatility 10** - 10% volatility synthetic index
+
+## 🎯 Key Features
 
 ### 📊 Signal Strength Gauges
 - **Trend Strength** - 200 EMA analysis (H4 & D1 timeframes)
@@ -23,7 +51,7 @@ All gauges feature real-time updates with color-coded signals:
 - Current market structure (swing highs/lows)
 - Technical indicator values (EMA, RSI, ADX)
 - Recent liquidity sweeps and break & retest patterns
-- Suggested entry, stop-loss, and take-profit levels
+- Suggested entry, stop-loss, and take-profit levels (asset-specific)
 - Market bias indicator (BUY/SELL/NEUTRAL)
 
 ### 🔔 Buy/Sell Alerts
@@ -33,13 +61,15 @@ All gauges feature real-time updates with color-coded signals:
 - **Push notifications** - Browser notifications (requires permission)
 - Alert history tracking (last 10 signals)
 
-### 📰 Real-Time News Feed
-- Live gold market news and updates
+### 📰 Asset-Specific News Feed
+- Live market news tailored to selected asset
 - High-impact event highlighting
 - Auto-refresh every 15 minutes
 - Sources include major financial news outlets
+- Dynamic news filtering based on asset keywords
 
 ### 🎛️ User Controls
+- **Asset Selector** - Switch between 24 trading instruments
 - **Timeframe Selector** - M5, M15, H1, H4, D1
 - **Indicator Toggles** - Enable/disable individual gauges
 - **RSI/ADX Confirmation** - Optional confirmation filters
@@ -47,7 +77,7 @@ All gauges feature real-time updates with color-coded signals:
 - **CSV Export** - Download complete analysis and signal history
 
 ### 🎨 Premium Design
-- Modern dark theme with gold accents
+- Modern dark theme with dynamic accents
 - Glassmorphism effects and smooth animations
 - Fully responsive (Desktop, Tablet, Mobile)
 - Optimized for both portrait and landscape orientations
@@ -58,22 +88,27 @@ All gauges feature real-time updates with color-coded signals:
 1. Download/clone this repository
 2. Open `index.html` in your web browser
 3. The site will start in **Demo Mode** with simulated data
-4. Explore all features immediately without API keys
+4. Select any asset from the dropdown to switch instruments
+5. Explore all features immediately without API keys
 
 ### Live Data Setup (Optional)
 To use real-time data, you'll need API keys:
 
-1. **Alpha Vantage** (for XAUUSD price data):
+1. **Alpha Vantage** (for Forex pairs including gold):
    - Get free key at: https://www.alphavantage.co/support/#api-key
    - 500 requests/day on free tier
 
-2. **News API** (for gold market news):
+2. **CoinGecko** (for Cryptocurrencies):
+   - **No API key required!** - Free public API
+   - Automatically used when in Live Mode
+
+3. **News API** (for market news):
    - Get free key at: https://newsapi.org/register
    - 100 requests/day on free tier
 
-3. **Configure in Settings**:
+4. **Configure in Settings**:
    - Click the settings icon ⚙️ in the header
-   - Enter your API keys
+   - Enter your Alpha Vantage and News API keys
    - Click "Save Settings"
    - Toggle to "Live Mode"
 
@@ -85,12 +120,13 @@ xauusd-trading-analyzer/
 ├── css/
 │   └── styles.css         # All styling (dark theme, responsive)
 ├── js/
+│   ├── assets.js         # Asset configuration (24 instruments)
 │   ├── main.js           # Application orchestration
 │   ├── indicators.js     # Technical indicator calculations
 │   ├── gauges.js         # Gauge management (JustGage)
-│   ├── api.js            # Data fetching & demo mode
+│   ├── api.js            # Multi-asset data fetching
 │   ├── alerts.js         # Alert & notification system
-│   └── news.js           # News feed integration
+│   └── news.js           # Asset-specific news feed
 └── README.md             # This file
 ```
 
@@ -108,6 +144,11 @@ xauusd-trading-analyzer/
 - ✅ Firefox
 - ✅ Safari
 - ⚠️ Older browsers may have limited support
+
+### API Integrations
+- **Alpha Vantage** - Forex pairs (including gold)
+- **CoinGecko** - Cryptocurrency prices (free, no key required)
+- **News API** - Asset-specific market news
 
 ### Technical Indicators Explained
 
@@ -157,14 +198,17 @@ xauusd-trading-analyzer/
 ## 📊 Data Sources
 
 ### Demo Mode (Default)
-- Generates realistic simulated XAUUSD data
-- Price follows realistic patterns with volatility
+- Generates realistic simulated data for all 24 assets
+- Asset-specific base prices and volatility
 - Perfect for testing and demonstration
 - No API keys required
+- Works offline
 
 ### Live Mode
-- **Price Data**: Alpha Vantage Currency Exchange API
-- **News Data**: News API with gold/forex keyword filtering
+- **Forex Data**: Alpha Vantage Currency Exchange API
+- **Crypto Data**: CoinGecko API (free, no key required)
+- **Volatility Indices**: Demo only (broker-specific)
+- **News Data**: News API with asset-specific keyword filtering
 - Auto-updates every 60 seconds (price) / 15 minutes (news)
 - Fallback to demo data if API limits reached
 
@@ -178,6 +222,7 @@ xauusd-trading-analyzer/
 - **Display**: Toggle individual gauges visibility
 
 ### Control Panel
+- **Asset**: Select from 24 trading instruments
 - **Timeframe**: Select analysis timeframe (M5-D1)
 - **Confirmations**: Enable/disable RSI/ADX filters
 - **Mode**: Switch between Demo and Live data
@@ -230,15 +275,23 @@ To better understand the trading concepts used in this analyzer:
 - **EMA Strategy**: Research moving average crossover systems
 - **RSI/ADX**: Understand momentum and trend strength indicators
 
-## 🚀 Future Enhancements (Potential)
+## 🚀 Recent Enhancements
 
-- [ ] Multi-currency support (EURUSD, GBPUSD, etc.)
+- ✅ **Multi-Asset Support** - 24 trading instruments across 3 categories
+- ✅ **Cryptocurrency Integration** - Real-time crypto prices via CoinGecko
+- ✅ **Volatility Indices** - Synthetic index support with demo data
+- ✅ **Asset-Specific News** - Tailored news feed per instrument
+- ✅ **Dynamic Formatting** - Asset-aware price display and calculations
+
+## 🔮 Potential Future Features
+
 - [ ] Historical backtest functionality
 - [ ] More timeframe options
-- [ ] Additional technical indicators
+- [ ] Additional technical indicators (MACD, Bollinger Bands)
 - [ ] Trade journal integration
 - [ ] Email/SMS alerts
 - [ ] Customizable alert thresholds
+- [ ] Multi-chart view (compare assets)
 
 ---
 
