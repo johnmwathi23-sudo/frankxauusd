@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="XAUUSD Gold Trading Analysis - Real-time Liquidity Sweep + Break & Retest Strategy">
+    <title>XAUUSD Trading Analyzer | Liquidity Sweep Strategy</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <!-- Gauge Libraries (CDN) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/justgage/1.4.0/justgage.min.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <span class="logo-icon">📊</span>
+                    <h1>XAUUSD Analyzer</h1>
+                </div>
+                
+                <div class="price-display">
+                    <div class="price-label">XAUUSD</div>
+                    <div class="price-value" id="currentPrice">Loading...</div>
+                    <div class="price-change" id="priceChange">--</div>
+                </div>
+                
+                <div class="header-controls">
+                    <button class="btn-icon" id="refreshBtn" title="Refresh Data">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                        </svg>
+                    </button>
+                    <button class="btn-icon" id="settingsBtn" title="Settings">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6m0-6h6m-6 0H6m12.4-7.4l-4.2 4.2m0 0l-4.2 4.2m4.2-4.2l4.2 4.2m-4.2-4.2l-4.2-4.2"/>
+                        </svg>
+                    </button>
+                    <div class="connection-status" id="connectionStatus">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Demo Mode</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="last-update">
+                Last updated: <span id="lastUpdate">Never</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            
+            <!-- Controls Panel -->
+            <section class="controls-panel">
+                <div class="control-group">
+                    <label for="timeframeSelect">Timeframe</label>
+                    <select id="timeframeSelect" class="control-select">
+                        <option value="M5">M5 (5 Min)</option>
+                        <option value="M15">M15 (15 Min)</option>
+                        <option value="H1">H1 (1 Hour)</option>
+                        <option value="H4" selected>H4 (4 Hour)</option>
+                        <option value="D1">D1 (Daily)</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="rsiConfirmation" checked>
+                        <span>RSI Confirmation</span>
+                    </label>
+                </div>
+                
+                <div class="control-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="adxConfirmation" checked>
+                        <span>ADX Confirmation</span>
+                    </label>
+                </div>
+                
+                <div class="control-group">
+                    <button class="btn-primary" id="downloadCSV">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                        </svg>
+                        Download CSV
+                    </button>
+                </div>
+                
+                <div class="control-group">
+                    <button class="btn-secondary" id="demoModeToggle">
+                        Switch to Live Mode
+                    </button>
+                </div>
+            </section>
+
+            <!-- Gauges Section -->
+            <section class="gauges-section">
+                <h2 class="section-title">Signal Strength Indicators</h2>
+                
+                <div class="gauges-grid">
+                    <!-- Trend Strength Gauge -->
+                    <div class="gauge-card">
+                        <div id="trendGauge" class="gauge"></div>
+                        <h3 class="gauge-title">Trend Strength</h3>
+                        <p class="gauge-description">200 EMA (H4 & D1)</p>
+                    </div>
+                    
+                    <!-- Liquidity Sweep Gauge -->
+                    <div class="gauge-card">
+                        <div id="liquidityGauge" class="gauge"></div>
+                        <h3 class="gauge-title">Liquidity Sweep</h3>
+                        <p class="gauge-description">Sweep Detection</p>
+                    </div>
+                    
+                    <!-- Break & Retest Gauge -->
+                    <div class="gauge-card">
+                        <div id="breakRetestGauge" class="gauge"></div>
+                        <h3 class="gauge-title">Break & Retest</h3>
+                        <p class="gauge-description">Confirmation Strength</p>
+                    </div>
+                    
+                    <!-- RSI Gauge -->
+                    <div class="gauge-card">
+                        <div id="rsiGauge" class="gauge"></div>
+                        <h3 class="gauge-title">RSI (7)</h3>
+                        <p class="gauge-description">Momentum Indicator</p>
+                    </div>
+                    
+                    <!-- ADX Gauge -->
+                    <div class="gauge-card">
+                        <div id="adxGauge" class="gauge"></div>
+                        <h3 class="gauge-title">ADX (14)</h3>
+                        <p class="gauge-description">Trend Strength</p>
+                    </div>
+                    
+                    <!-- Overall Strategy Gauge -->
+                    <div class="gauge-card overall-gauge">
+                        <div id="overallGauge" class="gauge"></div>
+                        <h3 class="gauge-title">Overall Signal</h3>
+                        <p class="gauge-description">Combined Strategy</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Two Column Layout -->
+            <div class="two-column-layout">
+                
+                <!-- Analysis Panel -->
+                <section class="analysis-panel">
+                    <h2 class="section-title">Detailed Analysis</h2>
+                    
+                    <div class="analysis-card">
+                        <h3 class="card-subtitle">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                            </svg>
+                            Market Structure
+                        </h3>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-label">Swing High:</span>
+                                <span class="info-value" id="swingHigh">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Swing Low:</span>
+                                <span class="info-value" id="swingLow">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Market Bias:</span>
+                                <span class="info-value badge" id="marketBias">NEUTRAL</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="analysis-card">
+                        <h3 class="card-subtitle">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 20V10M12 20V4M6 20v-6"/>
+                            </svg>
+                            Technical Indicators
+                        </h3>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-label">EMA 200 (H4):</span>
+                                <span class="info-value" id="emaH4">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">EMA 200 (D1):</span>
+                                <span class="info-value" id="emaD1">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">RSI (7):</span>
+                                <span class="info-value" id="rsiValue">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">ADX (14):</span>
+                                <span class="info-value" id="adxValue">--</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="analysis-card">
+                        <h3 class="card-subtitle">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                            </svg>
+                            Recent Activity
+                        </h3>
+                        <div class="activity-list" id="activityList">
+                            <p class="activity-item">No recent liquidity sweeps detected</p>
+                        </div>
+                    </div>
+                    
+                    <div class="analysis-card trade-levels">
+                        <h3 class="card-subtitle">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                            </svg>
+                            Suggested Trade Levels
+                        </h3>
+                        <div class="trade-levels-grid">
+                            <div class="level-item entry">
+                                <span class="level-label">Entry Price:</span>
+                                <span class="level-value" id="entryPrice">--</span>
+                            </div>
+                            <div class="level-item stop">
+                                <span class="level-label">Stop Loss:</span>
+                                <span class="level-value" id="stopLoss">--</span>
+                            </div>
+                            <div class="level-item target">
+                                <span class="level-label">Take Profit 1:</span>
+                                <span class="level-value" id="takeProfit1">--</span>
+                            </div>
+                            <div class="level-item target">
+                                <span class="level-label">Take Profit 2:</span>
+                                <span class="level-value" id="takeProfit2">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- News Feed -->
+                <section class="news-panel">
+                    <h2 class="section-title">Gold Market News</h2>
+                    
+                    <div class="news-container" id="newsContainer">
+                        <!-- News items will be dynamically inserted -->
+                        <div class="news-item">
+                            <div class="news-badge">LOADING</div>
+                            <h3 class="news-title">Fetching latest gold market news...</h3>
+                            <p class="news-summary">Please wait while we load the most recent updates.</p>
+                            <span class="news-time">Just now</span>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Alert Modal -->
+    <div class="modal" id="alertModal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="alert-icon" id="alertIcon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                </div>
+                <h2 class="modal-title" id="alertTitle">Trading Signal Detected</h2>
+                <button class="modal-close" id="closeModal">×</button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="signal-type" id="signalType">BUY SIGNAL</div>
+                
+                <div class="signal-details">
+                    <div class="signal-item">
+                        <span class="signal-label">Entry Price:</span>
+                        <span class="signal-value" id="alertEntryPrice">$2,050.00</span>
+                    </div>
+                    <div class="signal-item">
+                        <span class="signal-label">Stop Loss:</span>
+                        <span class="signal-value" id="alertStopLoss">$2,040.00</span>
+                    </div>
+                    <div class="signal-item">
+                        <span class="signal-label">Take Profit 1:</span>
+                        <span class="signal-value" id="alertTP1">$2,060.00</span>
+                    </div>
+                    <div class="signal-item">
+                        <span class="signal-label">Take Profit 2:</span>
+                        <span class="signal-value" id="alertTP2">$2,070.00</span>
+                    </div>
+                    <div class="signal-item">
+                        <span class="signal-label">Risk/Reward:</span>
+                        <span class="signal-value" id="alertRR">1:2</span>
+                    </div>
+                    <div class="signal-item">
+                        <span class="signal-label">Confidence:</span>
+                        <span class="signal-value" id="alertConfidence">High (85%)</span>
+                    </div>
+                </div>
+                
+                <div class="signal-timestamp" id="alertTimestamp">
+                    Detected at: <span id="alertTime">--</span>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn-primary" id="acknowledgeAlert">Acknowledge</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Settings</h2>
+                <button class="modal-close" id="closeSettings">×</button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h3>API Configuration</h3>
+                    <div class="input-group">
+                        <label for="alphaVantageKey">Alpha Vantage API Key</label>
+                        <input type="text" id="alphaVantageKey" placeholder="Your API key...">
+                    </div>
+                    <div class="input-group">
+                        <label for="newsApiKey">News API Key</label>
+                        <input type="text" id="newsApiKey" placeholder="Your API key...">
+                    </div>
+                </div>
+                
+                <div class="settings-section">
+                    <h3>Notifications</h3>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="soundAlerts" checked>
+                        <span>Sound Alerts</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="pushNotifications">
+                        <span>Push Notifications (requires permission)</span>
+                    </label>
+                </div>
+                
+                <div class="settings-section">
+                    <h3>Display</h3>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="showTrendGauge" checked>
+                        <span>Show Trend Gauge</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="showLiquidityGauge" checked>
+                        <span>Show Liquidity Gauge</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="showBreakRetestGauge" checked>
+                        <span>Show Break & Retest Gauge</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn-secondary" id="resetSettings">Reset to Default</button>
+                <button class="btn-primary" id="saveSettings">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 XAUUSD Analyzer. For educational purposes only. Not financial advice.</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript Files -->
+    <script src="js/indicators.js"></script>
+    <script src="js/gauges.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/alerts.js"></script>
+    <script src="js/news.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
